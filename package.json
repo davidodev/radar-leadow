@@ -1,0 +1,28 @@
+{
+  "name": "radar-leadow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Radar zamowionych zapytan o strony www - woj. kujawsko-pomorskie",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:psql": "docker compose exec db psql -U radar -d radar",
+    "migrate": "node src/cli.js migrate",
+    "radar": "node src/cli.js radar",
+    "audit": "node src/cli.js audit",
+    "ceidg": "node src/cli.js ceidg",
+    "ceidg:probe": "node src/cli.js ceidg:probe",
+    "report": "node src/cli.js report",
+    "heartbeat": "node src/cli.js heartbeat"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "pg": "^8.12.0"
+  }
+}

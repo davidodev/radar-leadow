@@ -1,0 +1,70 @@
+<!-- Wklej na davido.pl. Wysyła do endpointu z src/server.js.
+     Checkbox zgody NIE jest zaznaczony domyślnie i nie jest połączony z wysyłką
+     raportu — to dwa różne cele przetwarzania. Bez tego zgoda nie jest dobrowolna
+     w rozumieniu art. 398 PKE i art. 7 RODO. -->
+
+<form id="audyt" novalidate>
+  <h2>Sprawdź swoją stronę</h2>
+  <p>Dostaniesz raport z realnymi liczbami: czas ładowania na telefonie, ocena SEO
+     i lista tego, co da się poprawić bez przebudowy strony.</p>
+
+  <label for="audyt-url">Adres strony</label>
+  <input id="audyt-url" name="url" type="text" inputmode="url"
+         placeholder="mojafirma.pl" required autocomplete="url">
+
+  <label for="audyt-email">E-mail, na który mam wysłać raport</label>
+  <input id="audyt-email" name="email" type="email"
+         placeholder="ty@mojafirma.pl" required autocomplete="email">
+
+  <label class="check">
+    <input id="audyt-consent" name="consent" type="checkbox" required>
+    <span>Zgadzam się na otrzymanie raportu i kontakt handlowy od DAVIDO
+      na podany adres e-mail. Zgodę mogę wycofać w każdej chwili, pisząc na
+      <a href="mailto:kontakt@davido.pl">kontakt@davido.pl</a>.</span>
+  </label>
+
+  <button id="audyt-submit" type="submit">Sprawdź stronę</button>
+  <p id="audyt-status" role="status" aria-live="polite"></p>
+  <pre id="audyt-report" hidden></pre>
+</form>
+
+<script>
+(function () {
+  var form = document.getElementById('audyt');
+  var status = document.getElementById('audyt-status');
+  var report = document.getElementById('audyt-report');
+  var btn = document.getElementById('audyt-submit');
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var url = document.getElementById('audyt-url').value.trim();
+    var email = document.getElementById('audyt-email').value.trim();
+    var consent = document.getElementById('audyt-consent').checked;
+
+    if (!url) return (status.textContent = 'Podaj adres strony.');
+    if (!email) return (status.textContent = 'Podaj adres e-mail.');
+    if (!consent) return (status.textContent = 'Bez zgody nie mogę wysłać raportu.');
+
+    btn.disabled = true;
+    status.textContent = 'Sprawdzam stronę — to trwa około 30 sekund…';
+    report.hidden = true;
+
+    try {
+      var res = await fetch('https://api.davido.pl/audyt', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: url, email: email, consent: consent })
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Nie udało się zbadać strony.');
+      status.textContent = 'Gotowe. Raport jest też w drodze na ' + email + '.';
+      report.textContent = data.report;
+      report.hidden = false;
+    } catch (err) {
+      status.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>

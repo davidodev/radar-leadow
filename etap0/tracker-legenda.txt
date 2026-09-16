@@ -1,0 +1,14 @@
+Jak uzywac	
+data	kiedy zauwazyles sygnal
+zrodlo	useme / fb / bzp / bk / bip / polecenie / inne
+sciezka	A = zamowione, B = inbound ze zgoda, C = offline. Bez wpisu nie kontaktujesz.
+trafnosc_1_5	1 = przypadek, 5 = dokladnie Twoj typ zlecenia
+co_wyslalem	ktory szablon, w jednym slowie
+rozmowa	TAK jesli doszlo do rozmowy glosowej lub spotkania
+wynik	brak / odmowa / w toku / wygrane
+
+BRAMKA PO 2 TYGODNIACH
+  >= 15 realnych zapytan o strone  ORAZ  >= 2 rozmowy handlowe  -> budujesz radar (etap 1)
+  ponizej                                                        -> problemem nie jest brak narzedzia
+
+Separator w CSV to srednik - Excel PL otworzy to bez importu.

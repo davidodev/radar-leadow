@@ -1,0 +1,38 @@
+# Sam Postgres - reszta radaru chodzi jako zwykle procesy node.
+#
+#   npm run db:up      # docker compose up -d
+#   npm run migrate    # zaklada tabele
+#   npm run db:logs    # jesli cos nie wstaje
+#
+# Port: domyslnie 5432. Jesli masz juz lokalnego Postgresa, ustaw w .env
+#   RADAR_DB_PORT=5433
+# i zmien port w DATABASE_URL na ten sam.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: radar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: radar
+      POSTGRES_PASSWORD: radar
+      POSTGRES_DB: radar
+      # Celowo BEZ --locale=pl_PL.UTF-8: obraz alpine stoi na musl i nie ma
+      # polskich lokali, initdb by sie wywalil. Zostaje C.UTF-8.
+      # Jesli kiedys bedziesz sortowal nazwy firm po polsku, dodaj kolacje
+      # ICU na konkretnej kolumnie, zamiast ruszac locale calej bazy:
+      #   ALTER TABLE companies ALTER COLUMN name TYPE text COLLATE "pl-PL-x-icu";
+    ports:
+      # Tylko localhost. Na VPS-ie NIE zmieniaj tego na 0.0.0.0 -
+      # haslo 'radar' jest do lokalnej roboty, nie do internetu.
+      - "127.0.0.1:${RADAR_DB_PORT:-5432}:5432"
+    volumes:
+      - radar-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U radar -d radar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  radar-pgdata:
