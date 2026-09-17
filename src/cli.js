@@ -2,6 +2,7 @@ import { pool, migrate, q } from './lib/db.js';
 import { runRadar, heartbeat } from './jobs/radar.js';
 import { auditUrl, renderReport } from './jobs/audit.js';
 import { fetchCeidg, probePkd } from './sources/ceidg.js';
+import { discoverFeeds } from './sources/rbip.js';
 import { SEGMENTS } from './config/pkd.js';
 
 const [, , cmd, ...args] = process.argv;
@@ -24,6 +25,8 @@ const cmds = {
   },
 
   async 'ceidg:probe'() { await probePkd(); },
+
+  async 'rbip:discover'() { await discoverFeeds(); },
 
   async ceidg() {
     const days = Number(args[0] || 7);
@@ -66,7 +69,7 @@ const cmds = {
 
 const run = cmds[cmd];
 if (!run) {
-  console.log('komendy: migrate | radar | heartbeat | audit <url> | ceidg [dni] | ceidg:probe | report');
+  console.log('komendy: migrate | radar | heartbeat | audit <url> | ceidg [dni] | ceidg:probe | rbip:discover | report');
   process.exit(1);
 }
 run().catch((e) => { console.error(e); process.exitCode = 1; })

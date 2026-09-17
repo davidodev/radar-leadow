@@ -40,6 +40,7 @@ npm run heartbeat     # sprawdza, czy któreś źródło nie zamilkło
 npm run audit -- example.pl
 npm run ceidg -- 7    # nowe wpisy z ostatnich 7 dni (wymaga CEIDG_TOKEN)
 npm run ceidg:probe   # rozstrzyga, którą wersję PKD przyjmuje filtr (wymaga CEIDG_TOKEN)
+npm run rbip:discover # jednorazowo: wykrywa kanały RSS gmin i powiatów → rbip-feeds.json
 npm run report        # co się działo przez 30 dni
 node src/server.js    # endpoint pod formularz audytu na davido.pl
 ```
@@ -56,12 +57,35 @@ node src/server.js    # endpoint pod formularz audytu na davido.pl
 
 | Źródło | Status | Uwaga |
 |---|---|---|
-| **Useme** | ✅ główne | ~60–65 aktywnych zleceń na strony www. robots.txt zezwala na `/pl/jobs/`, **crawl-delay 10 s** — kod to respektuje. Odpowiadasz w Useme, nie mailem (regulamin art. 2 §15). |
-| **BZP / e-Zamówienia** | ✅ włączone | API bezpłatne, bez klucza. Daty obowiązkowe, filtr województwa **nie działa** — filtrujemy u siebie. ~16 ogłoszeń/mies. na CPV 72413000-8 w skali kraju. |
-| **Baza Konkurencyjności** | ⚠️ wyłączone | Endpoint JSON do potwierdzenia w DevTools, potem `enabled: true` w `src/jobs/radar.js`. |
+| **RBIP mojregion.info** | ✅ **główne** | Regionalny BIP kujawsko-pomorskiego, jeden silnik dla dziesiątek gmin i powiatów. Gotowe **kanały RSS** per podmiot — czytamy XML, nie scrapujemy HTML. Tu są zamówienia **poniżej progu 130 tys. zł**, których nie ma w BZP. robots.txt: `Allow: /`, bez crawl-delay. |
+| **BZP / e-Zamówienia** | ✅ włączone | API bezpłatne, bez klucza. Daty obowiązkowe, filtr województwa **nie działa** — filtrujemy u siebie. Odpowiedź to goła tablica. ~16 ogłoszeń/mies. na CPV 72413000-8 w skali kraju. |
+| **Baza Konkurencyjności** | ⚠️ wyłączone | Zapytania beneficjentów UE — obejmuje też **KPO i FEnIKS**, nie ma dla nich osobnego kanału. Endpoint JSON do potwierdzenia w DevTools, potem `enabled: true` w `src/jobs/radar.js`. |
+| **Useme** | ⛔ wyłączone celowo | Obsługuje je już scheduled task `useme-oferty-pod-oceny`. Dwa procesy na tym samym źródle = ryzyko podwójnej oferty. Włączyć dopiero gdy radar ma **zastąpić** taska. |
 | **CEIDG v3** | ✅ etap 3 | Wymaga JWT z biznes.gov.pl. 50 req/3 min, 1000 req/60 min. Struktura odpowiedzi potwierdzona — patrz niżej. |
 | **PageSpeed Insights** | ✅ | Darmowe, 25 000/dobę z kluczem. |
 | Oferia, Oferteo, Fixly, OLX, LinkedIn, FB | ❌ | Powody w `etap0/zrodla.md`. |
+| platformazakupowa.pl | ❌ | Regulamin od 10.12.2025 §3 ust. 7 zakazuje wprost scrapingu, crawlingu i TDM. Te same ogłoszenia są na BIP-ach gmin — bierzemy je stamtąd. |
+| SmartPZP | ❌ | robots.txt zakazuje `public/lista_przetargow`. |
+| Logintrade, Marketplanet | ❌ | Brak wspólnego, publicznego listingu — instancja per zamawiający. |
+| Freelancehunt | ❌ | Ma darmowe API, ale 5 projektów w kategorii web i baza ukraińsko-CIS-owa, nie polska. |
+
+## RBIP — jak to działa
+
+Numer kategorii kanału RSS jest **lokalny dla podmiotu** (u Skrwilna zamówienia
+publiczne to `306`), więc feedów nie da się złożyć z szablonu. Dlatego raz:
+
+```bash
+npm run rbip:discover
+```
+
+przechodzi po subdomenach z `src/config/rbip.js`, znajduje stronę „lista kanałów RSS",
+wybiera kanały pasujące do zamówień i zapisuje je do `src/config/rbip-feeds.json`.
+Dopisanie kolejnej gminy = jedna linia w `rbip.js` i ponowny `rbip:discover`.
+
+Jedna rzecz do rozstrzygnięcia przed produkcją: robots.txt ma `Disallow: /xml`,
+a kanały leżą pod `/rss/…`. Ścieżki się nie pokrywają, ale intencja może być ta sama.
+Najprościej zapytać administratora RBIP — to jednostka publiczna i pytanie
+o ponowne wykorzystanie informacji publicznej ma obowiązek rozpatrzyć.
 
 ## Uwaga o PKD — to jest pułapka, o którą łatwo się rozbić
 
@@ -126,7 +150,8 @@ db/schema.sql            signals, companies, audits, consents, touches, source_r
 src/config/pkd.js        segmenty + kody PKD 2007 i 2025
 src/config/cpv.js        kody CPV do BZP
 src/config/keywords.js   scoring trafności — plik, który będziesz ruszał najczęściej
-src/sources/             useme, bzp, bazakonkurencyjnosci, ceidg
+src/config/rbip.js       subdomeny RBIP kujawsko-pomorskiego
+src/sources/             rbip, bzp, bazakonkurencyjnosci, ceidg, useme (wyłączone)
 src/audit/               psi (PageSpeed), heuristics (HTTPS, RWD, WP, TTFB)
 src/jobs/                radar (przebieg + heartbeat), audit (pełny audyt + raport)
 src/server.js            endpoint pod formularz na davido.pl

@@ -1,5 +1,6 @@
 import { upsertSignal, logRun, q } from '../lib/db.js';
 import { fetchUseme } from '../sources/useme.js';
+import { fetchRbip } from '../sources/rbip.js';
 import { fetchBzp } from '../sources/bzp.js';
 import { fetchBk } from '../sources/bazakonkurencyjnosci.js';
 import { sendBatch, send } from '../notify/telegram.js';
@@ -8,10 +9,20 @@ import { sendBatch, send } from '../notify/telegram.js';
 const ALERT_AT = Number(process.env.ALERT_AT || 45);
 
 const SOURCES = [
-  { name: 'useme', enabled: true,  run: () => fetchUseme({ pages: 2 }) },
+  // RBIP - zamowienia gmin i powiatow PONIZEJ progu BZP. Najgestsze zrodlo
+  // regionalne; wymaga jednorazowego `npm run rbip:discover`.
+  { name: 'rbip',  enabled: true,  run: () => fetchRbip({ days: 14 }) },
+  // BZP - zamowienia publiczne powyzej progu, caly kraj, filtr po CPV.
   { name: 'bzp',   enabled: true,  run: () => fetchBzp({ days: 3, onlyProvince: false }) },
-  // Wlacz, gdy potwierdzisz endpoint JSON (patrz komentarz w pliku zrodla).
+  // Baza Konkurencyjnosci - zapytania beneficjentow funduszy UE (obejmuje tez
+  // KPO i FEnIKS - nie ma dla nich osobnego kanalu). Wlacz po potwierdzeniu
+  // endpointu JSON w DevTools.
   { name: 'bk',    enabled: false, run: () => fetchBk({ days: 3 }) },
+  // Useme WYLACZONE celowo: te ogloszenia obsluguje juz scheduled task
+  // `useme-oferty-pod-oceny`, ktory sam sklada oferty. Dwa procesy na tym samym
+  // zrodle groza podwojna oferta na to samo zlecenie. Wlacz dopiero wtedy,
+  // gdy radar ma ZASTAPIC taska, nie chodzic obok niego.
+  { name: 'useme', enabled: false, run: () => fetchUseme({ pages: 2 }) },
 ];
 
 export async function runRadar() {

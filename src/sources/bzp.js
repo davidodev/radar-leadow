@@ -10,6 +10,16 @@
 //     po polu organizationProvince.
 // Odpowiedz zawiera pelny htmlBody kazdego ogloszenia - przy PageSize=100 to
 // megabajty. Dlatego PageSize domyslnie 50 i od razu obcinamy htmlBody.
+//
+// Ksztalt odpowiedzi potwierdzony na zywym API 17.09.2026: to GOLA TABLICA
+// obiektow, nie obiekt z polem `content`. Pola jednego ogloszenia:
+//   noticeNumber "2026/BZP 00435059/01", bzpNumber, noticeType, orderType
+//   ("Services"/"Works"/"Delivery"), orderObject, cpvCode - UWAGA: to string
+//   z WIELOMA kodami i ich nazwami po przecinku, np.
+//   "72413000-8 (Uslugi w zakresie projektowania stron WWW),72212224-5 (...)",
+//   organizationName, organizationCity, organizationProvince (NUTS: "PL22"),
+//   organizationNationalId (to NIP zamawiajacego), organizationId,
+//   publicationDate, submittingOffersDate, tenderId (OCID), objectId, htmlBody.
 
 import { env } from '../lib/env.js';
 import { CPV, BROAD } from '../config/cpv.js';
@@ -31,8 +41,10 @@ async function page({ cpv, from, to, pageNumber = 1, pageSize = 50 }) {
 
   const res = await fetch(u, { headers: { 'user-agent': env.ua, accept: 'application/json' } });
   if (!res.ok) throw new Error(`bzp ${res.status} cpv=${cpv}`);
-  const json = await res.json();
-  // Ksztalt odpowiedzi bywa opakowany - obsluz oba warianty.
+  const text = await res.text();
+  if (!text.trim()) return [];                    // brak wynikow = puste cialo
+  const json = JSON.parse(text);
+  // Potwierdzone: gola tablica. Warianty opakowane zostawiam na wypadek zmiany.
   return Array.isArray(json) ? json : (json.content || json.items || json.data || []);
 }
 
@@ -65,14 +77,18 @@ export async function fetchBzp({ days = 3, onlyProvince = true } = {}) {
       const text = stripHtml(it.htmlBody || '');
       const title = it.orderObject || it.noticeTitle || '(bez tytulu)';
       let rel = score(`${title} ${text.slice(0, 4000)}`);
-      if (BROAD.has(code)) rel -= 20; // szerokie CPV lapia tez dostawy sprzetu
+      // Szerokie CPV lapia tez dostawy sprzetu i licencje - podnosimy im prog.
+      if (BROAD.has(code)) rel -= 20;
+      // Dostawy i roboty budowlane prawie nigdy nie sa zleceniem na strone.
+      if (it.orderType && it.orderType !== 'Services') rel -= 25;
       const city = it.organizationCity || null;
 
       out.push({
         source: 'bzp',
-        externalId: it.noticeNumber || it.tenderId || `${code}:${it.id}`,
-        url: it.noticeNumber
-          ? `https://ezamowienia.gov.pl/mp-client/search/list/${it.tenderId || ''}`
+        externalId: it.noticeNumber || it.tenderId || it.objectId,
+        // tenderId to OCID - platforma otwiera po nim widok postepowania.
+        url: it.tenderId
+          ? `https://ezamowienia.gov.pl/mp-client/search/list/${it.tenderId}`
           : 'https://ezamowienia.gov.pl/mp-client/search/list',
         title,
         body: text.slice(0, 4000),
@@ -84,7 +100,14 @@ export async function fetchBzp({ days = 3, onlyProvince = true } = {}) {
         channel: 'A', // postepowanie publiczne = zaproszenie do skladania ofert
         relevance: Math.max(0, rel),
         isLocal: isLocal(city),
-        raw: { cpv: code, organizationName: it.organizationName, noticeNumber: it.noticeNumber },
+        raw: {
+          cpv: code,
+          cpvAll: it.cpvCode,                       // pelny string z nazwami kodow
+          organizationName: it.organizationName,
+          organizationNip: it.organizationNationalId,
+          orderType: it.orderType,
+          noticeNumber: it.noticeNumber,
+        },
       });
     }
   }
